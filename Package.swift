@@ -19,7 +19,6 @@ let package = Package(
   targets: [
     .target(
       name: "HCaptcha",
-      path: "HCaptcha",
       resources: [
         .process("Resources/PrivacyInfo.xcprivacy")
       ]

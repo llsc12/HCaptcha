@@ -5,61 +5,77 @@
 //  Copyright © 2024 HCaptcha. MIT License.
 //
 
-import SwiftUI
 import HCaptcha
+import SwiftUI
 
 // Wrapper-view to provide UIView instance
-struct UIViewWrapperView: UIViewRepresentable {
+#if canImport(UIKit)
+  struct UIViewWrapperView: UIViewRepresentable {
     var uiView = UIView()
 
     func makeUIView(context: Context) -> UIView {
-        uiView.backgroundColor = .gray
-        return uiView
+      uiView.backgroundColor = .gray
+      return uiView
     }
 
     func updateUIView(_ view: UIView, context: Context) {
-        // nothing to update
+      // nothing to update
     }
-}
+  }
+#else
+  struct UIViewWrapperView: NSViewRepresentable {
+    var uiView = NSView()
+
+    func makeNSView(context: Context) -> NSView {
+      uiView.wantsLayer = true
+      uiView.layer?.backgroundColor = NSColor.gray.cgColor
+      return uiView
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+      // nothing to update
+    }
+  }
+#endif
 
 class HCaptchaViewModel: ObservableObject {
-    let hcaptcha: HCaptcha!
+  let hcaptcha: HCaptcha!
 
-    init() {
-        self.hcaptcha = try? HCaptcha()
-    }
+  init() {
+    self.hcaptcha = try? HCaptcha()
+  }
 
-    func configure(_ hostView: UIViewWrapperView) {
-        hcaptcha.configureWebView { webview in
-            webview.frame = hostView.uiView.bounds
-        }
-        hcaptcha.onEvent { (event, _) in
-            print("HCaptcha onEvent \(event.rawValue)")
-        }
+  func configure(_ hostView: UIViewWrapperView) {
+    hcaptcha.configureWebView { webview in
+      webview.frame = hostView.uiView.bounds
     }
+    hcaptcha.onEvent { (event, _) in
+      print("HCaptcha onEvent \(event.rawValue)")
+    }
+  }
 
-    func validate(_ hostView: UIViewWrapperView) {
-        hcaptcha.validate(on: hostView.uiView) { result in
-            print("HCaptcha result \(try? result.dematerialize())")
-        }
+  func validate(_ hostView: UIViewWrapperView) {
+    hcaptcha.validate(on: hostView.uiView) { result in
+      print("HCaptcha result \(try? result.dematerialize())")
     }
+  }
 }
 
 // Example of hCaptcha usage
 struct HCaptchaView: View {
-    @StateObject var model = HCaptchaViewModel()
-    let placeholder = UIViewWrapperView()
+  @StateObject var model = HCaptchaViewModel()
+  let placeholder = UIViewWrapperView()
 
-    var body: some View {
-        VStack{
-            placeholder.frame(width: 640, height: 640, alignment: .center)
-            Button(
-                "validate",
-                action: { model.validate(placeholder) }
-            ).padding()
-        }
-        .onAppear {
-            model.configure(placeholder)
-        }
+  var body: some View {
+    VStack {
+      placeholder.frame(width: 640, height: 640, alignment: .center)
+      Button(
+        "validate",
+        action: { model.validate(placeholder) }
+      ).padding()
     }
+    .onAppear {
+      model.configure(placeholder)
+    }
+  }
 }

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import WebKit
+@preconcurrency import WebKit
 
 extension HCaptchaWebViewManager: WKNavigationDelegate, WKUIDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,

@@ -6,28 +6,30 @@
 //  Copyright © 2018 HCaptcha. All rights reserved.
 //
 
-import WebKit
-import UIKit
 import JavaScriptCore
+import WebKit
+#if canImport(UIKit)
+  import UIKit
+#elseif canImport(AppKit)
+  import AppKit
+#endif
 
-/**
-  hCaptcha SDK facade (entry point)
-*/
+/// hCaptcha SDK facade (entry point)
 @objc
 public class HCaptcha: NSObject {
-    fileprivate struct Constants {
-        struct InfoDictKeys {
-            static let APIKey = "HCaptchaKey"
-            static let Domain = "HCaptchaDomain"
-        }
+  fileprivate struct Constants {
+    struct InfoDictKeys {
+      static let APIKey = "HCaptchaKey"
+      static let Domain = "HCaptchaDomain"
     }
+  }
 
-    typealias Log = HCaptchaLogger
+  typealias Log = HCaptchaLogger
 
-    /// The worker that handles webview events and communication
-    let manager: HCaptchaWebViewManager
+  /// The worker that handles webview events and communication
+  let manager: HCaptchaWebViewManager
 
-    /**
+  /**
      - parameters:
          - apiKey: The API key sent to the HCaptcha init
          - baseURL: The base URL sent to the HCaptcha init
@@ -58,81 +60,83 @@ public class HCaptcha: NSObject {
          Info.plist.
      - Throws: Rethrows any exceptions thrown by `String(contentsOfFile:)`
      */
-    @objc
-    public convenience init(
-        apiKey: String? = nil,
-        passiveApiKey: Bool = false,
-        baseURL: URL? = nil,
-        locale: Locale? = Locale.current,
-        size: HCaptchaSize = .invisible,
-        orientation: HCaptchaOrientation = .portrait,
-        jsSrc: URL = URL(string: "https://js.hcaptcha.com/1/api.js")!,
-        rqdata: String? = nil,
-        sentry: Bool = false,
-        endpoint: URL? = nil,
-        reportapi: URL? = nil,
-        assethost: URL? = nil,
-        imghost: URL? = nil,
-        host: String? = nil,
-        theme: String = "light",
-        customTheme: String? = nil,
-        diagnosticLog: Bool = false,
-        disablePat: Bool = false
-    ) throws {
-        Log.minLevel = diagnosticLog ? .debug : .warning
+  @objc
+  public convenience init(
+    apiKey: String? = nil,
+    passiveApiKey: Bool = false,
+    baseURL: URL? = nil,
+    locale: Locale? = Locale.current,
+    size: HCaptchaSize = .invisible,
+    orientation: HCaptchaOrientation = .portrait,
+    jsSrc: URL = URL(string: "https://js.hcaptcha.com/1/api.js")!,
+    rqdata: String? = nil,
+    sentry: Bool = false,
+    endpoint: URL? = nil,
+    reportapi: URL? = nil,
+    assethost: URL? = nil,
+    imghost: URL? = nil,
+    host: String? = nil,
+    theme: String = "light",
+    customTheme: String? = nil,
+    diagnosticLog: Bool = false,
+    disablePat: Bool = false
+  ) throws {
+    Log.minLevel = diagnosticLog ? .debug : .warning
 
-        let infoDict = Bundle.main.infoDictionary
+    let infoDict = Bundle.main.infoDictionary
 
-        let plistApiKey = infoDict?[Constants.InfoDictKeys.APIKey] as? String
-        let plistDomain = (infoDict?[Constants.InfoDictKeys.Domain] as? String).flatMap(URL.init(string:))
+    let plistApiKey = infoDict?[Constants.InfoDictKeys.APIKey] as? String
+    let plistDomain = (infoDict?[Constants.InfoDictKeys.Domain] as? String)
+      .flatMap(URL.init(string:))
 
-        let config = try HCaptchaConfig(apiKey: apiKey,
-                                        passiveApiKey: passiveApiKey,
-                                        infoPlistKey: plistApiKey,
-                                        baseURL: baseURL,
-                                        infoPlistURL: plistDomain,
-                                        jsSrc: jsSrc,
-                                        size: size,
-                                        orientation: orientation,
-                                        rqdata: rqdata,
-                                        sentry: sentry,
-                                        endpoint: endpoint,
-                                        reportapi: reportapi,
-                                        assethost: assethost,
-                                        imghost: imghost,
-                                        host: host,
-                                        theme: theme,
-                                        customTheme: customTheme,
-                                        locale: locale,
-                                        disablePat: disablePat)
+    let config = try HCaptchaConfig(
+      apiKey: apiKey,
+      passiveApiKey: passiveApiKey,
+      infoPlistKey: plistApiKey,
+      baseURL: baseURL,
+      infoPlistURL: plistDomain,
+      jsSrc: jsSrc,
+      size: size,
+      orientation: orientation,
+      rqdata: rqdata,
+      sentry: sentry,
+      endpoint: endpoint,
+      reportapi: reportapi,
+      assethost: assethost,
+      imghost: imghost,
+      host: host,
+      theme: theme,
+      customTheme: customTheme,
+      locale: locale,
+      disablePat: disablePat)
 
-        Log.debug(".init with: \(config)")
+    Log.debug(".init with: \(config)")
 
-        self.init(manager: HCaptchaWebViewManager(config: config))
-    }
+    self.init(manager: HCaptchaWebViewManager(config: config))
+  }
 
-    /**
+  /**
      - parameter manager: A HCaptchaWebViewManager instance.
 
       Initializes HCaptcha with the given manager
     */
-    init(manager: HCaptchaWebViewManager) {
-        self.manager = manager
-    }
+  init(manager: HCaptchaWebViewManager) {
+    self.manager = manager
+  }
 
-    /**
+  /**
      - parameter reciever: A callback function
 
        onEvent allow to subscribe to SDK's events
      */
-    @objc
-    public func onEvent(_ reciever: ((HCaptchaEvent, Any?) -> Void)? = nil) {
-        Log.debug(".onEvent")
+  @objc
+  public func onEvent(_ reciever: ((HCaptchaEvent, Any?) -> Void)? = nil) {
+    Log.debug(".onEvent")
 
-        manager.onEvent = reciever
-    }
+    manager.onEvent = reciever
+  }
 
-    /**
+  /**
      - parameters:
          - view: The view that should present the webview.
          - resetOnError: If HCaptcha should be reset if it errors. Defaults to `true`.
@@ -140,27 +144,45 @@ public class HCaptcha: NSObject {
 
      Starts the challenge validation
     */
-    @objc
-    public func validate(on view: UIView? = nil, resetOnError: Bool = true,
-                         completion: @escaping (HCaptchaResult) -> Void) {
-        Log.debug(".validate on: \(String(describing: view)) resetOnError: \(resetOnError)")
+#if os(iOS)
+  @objc
+  public func validate(
+    on view: UIView? = nil, resetOnError: Bool = true,
+    completion: @escaping (HCaptchaResult) -> Void
+  ) {
+    Log.debug(
+      ".validate on: \(String(describing: view)) resetOnError: \(resetOnError)")
 
-        manager.shouldResetOnError = resetOnError
-        manager.completion = completion
+    manager.shouldResetOnError = resetOnError
+    manager.completion = completion
 
-        manager.validate(on: view)
-    }
+    manager.validate(on: view)
+  }
+  #elseif os(macOS)
+  @objc
+  public func validate(
+    on view: NSView? = nil, resetOnError: Bool = true,
+    completion: @escaping (HCaptchaResult) -> Void
+  ) {
+    Log.debug(
+      ".validate on: \(String(describing: view)) resetOnError: \(resetOnError)")
 
-    /// Stops the execution of the webview
-    @objc
-    public func stop() {
-        Log.debug(".stop")
+    manager.shouldResetOnError = resetOnError
+    manager.completion = completion
 
-        manager.stop()
-    }
+    manager.validate(on: view)
+  }
+  #endif
 
+  /// Stops the execution of the webview
+  @objc
+  public func stop() {
+    Log.debug(".stop")
 
-    /**
+    manager.stop()
+  }
+
+  /**
      - parameter configure: A closure that receives an instance of `WKWebView` for configuration.
 
      Provides a closure to configure the webview for presentation if necessary.
@@ -168,26 +190,26 @@ public class HCaptcha: NSObject {
      If presentation is required, the webview will already be a subview of `presenterView` if one is provided. Otherwise
      it might need to be added in a view currently visible.
     */
-    @objc
-    public func configureWebView(_ configure: @escaping (WKWebView) -> Void) {
-        Log.debug(".configureWebView")
+  @objc
+  public func configureWebView(_ configure: @escaping (WKWebView) -> Void) {
+    Log.debug(".configureWebView")
 
-        manager.configureWebView = configure
-    }
+    manager.configureWebView = configure
+  }
 
-    /**
+  /**
      Resets the HCaptcha.
 
      The reset is achieved by calling `hcaptcha.reset()` on the JS API.
     */
-    @objc
-    public func reset() {
-        Log.debug(".reset")
+  @objc
+  public func reset() {
+    Log.debug(".reset")
 
-        manager.reset()
-    }
+    manager.reset()
+  }
 
-    /**
+  /**
      - parameter closure: A closure that is called when the JS bundle finishes loading.
 
      Provides a closure to be notified when the webview finishes loading JS resources.
@@ -196,100 +218,106 @@ public class HCaptcha: NSObject {
      in case of error or reset. This may also be immediately called if the resources have already
      finished loading when you set the closure.
     */
-    @objc
-    public func didFinishLoading(_ closure: (() -> Void)?) {
-        Log.debug(".didFinishLoading")
-        manager.onDidFinishLoading = closure
-    }
+  @objc
+  public func didFinishLoading(_ closure: (() -> Void)?) {
+    Log.debug(".didFinishLoading")
+    manager.onDidFinishLoading = closure
+  }
 
-    /**
+  /**
      Request for a call to the `configureWebView` closure.
 
      This may be useful if you need to modify the layout of hCaptcha.
     */
-    @objc
-    public func redrawView() {
-        manager.configureWebView?(manager.webView)
-    }
+  @objc
+  public func redrawView() {
+    manager.configureWebView?(manager.webView)
+  }
 
-    // MARK: - Objective-C 'convenience' inits
+  // MARK: - Objective-C 'convenience' inits
 
-    @objc
-    public convenience init(locale: Locale) throws {
-        try self.init(locale: locale, size: .invisible)
-    }
+  @objc
+  public convenience init(locale: Locale) throws {
+    try self.init(locale: locale, size: .invisible)
+  }
 
-    @objc
-    public convenience init(size: HCaptchaSize) throws {
-        try self.init(locale: nil, size: size)
-    }
+  @objc
+  public convenience init(size: HCaptchaSize) throws {
+    try self.init(locale: nil, size: size)
+  }
 
-    @objc
-    public convenience init(passiveApiKey: Bool) throws {
-        try self.init(passiveApiKey: passiveApiKey, locale: nil)
-    }
+  @objc
+  public convenience init(passiveApiKey: Bool) throws {
+    try self.init(passiveApiKey: passiveApiKey, locale: nil)
+  }
 
-    @objc
-    public convenience init(apiKey: String) throws {
-        try self.init(apiKey: apiKey, locale: nil)
-    }
+  @objc
+  public convenience init(apiKey: String) throws {
+    try self.init(apiKey: apiKey, locale: nil)
+  }
 
-    @objc
-    public convenience init(apiKey: String, baseURL: URL) throws {
-        try self.init(apiKey: apiKey, baseURL: baseURL, locale: nil)
-    }
+  @objc
+  public convenience init(apiKey: String, baseURL: URL) throws {
+    try self.init(apiKey: apiKey, baseURL: baseURL, locale: nil)
+  }
 
-    @objc
-    public convenience init(apiKey: String, passiveApiKey: Bool) throws {
-        try self.init(apiKey: apiKey, passiveApiKey: passiveApiKey, locale: nil)
-    }
+  @objc
+  public convenience init(apiKey: String, passiveApiKey: Bool) throws {
+    try self.init(apiKey: apiKey, passiveApiKey: passiveApiKey, locale: nil)
+  }
 
-    @objc
-    public convenience init(apiKey: String, baseURL: URL, locale: Locale) throws {
-        try self.init(apiKey: apiKey, baseURL: baseURL, locale: locale, size: .invisible)
-    }
+  @objc
+  public convenience init(apiKey: String, baseURL: URL, locale: Locale) throws {
+    try self.init(
+      apiKey: apiKey, baseURL: baseURL, locale: locale, size: .invisible)
+  }
 
+  @objc
+  public convenience init(
+    apiKey: String, baseURL: URL, locale: Locale, size: HCaptchaSize
+  ) throws {
+    try self.init(
+      apiKey: apiKey, baseURL: baseURL, locale: locale, size: size, rqdata: nil)
+  }
 
-    @objc
-    public convenience init(apiKey: String, baseURL: URL, locale: Locale, size: HCaptchaSize) throws {
-        try self.init(apiKey: apiKey, baseURL: baseURL, locale: locale, size: size, rqdata: nil)
-    }
-
-    @objc
-    public convenience init(apiKey: String?,
-                            passiveApiKey: Bool,
-                            baseURL: URL?,
-                            locale: Locale?,
-                            size: HCaptchaSize,
-                            orientation: HCaptchaOrientation,
-                            jsSrc: URL,
-                            rqdata: String?,
-                            sentry: Bool,
-                            endpoint: URL?,
-                            reportapi: URL?,
-                            assethost: URL?,
-                            imghost: URL?,
-                            host: String?,
-                            theme: String,
-                            customTheme: String?,
-                            diagnosticLog: Bool) throws {
-        try self.init(apiKey: apiKey,
-                      passiveApiKey: passiveApiKey,
-                      baseURL: baseURL,
-                      locale: locale,
-                      size: size,
-                      orientation: orientation,
-                      jsSrc: jsSrc,
-                      rqdata: rqdata,
-                      sentry: sentry,
-                      endpoint: endpoint,
-                      reportapi: reportapi,
-                      assethost: assethost,
-                      imghost: imghost,
-                      host: host,
-                      theme: theme,
-                      customTheme: customTheme,
-                      diagnosticLog: diagnosticLog,
-                      disablePat: false)
-    }
+  @objc
+  public convenience init(
+    apiKey: String?,
+    passiveApiKey: Bool,
+    baseURL: URL?,
+    locale: Locale?,
+    size: HCaptchaSize,
+    orientation: HCaptchaOrientation,
+    jsSrc: URL,
+    rqdata: String?,
+    sentry: Bool,
+    endpoint: URL?,
+    reportapi: URL?,
+    assethost: URL?,
+    imghost: URL?,
+    host: String?,
+    theme: String,
+    customTheme: String?,
+    diagnosticLog: Bool
+  ) throws {
+    try self.init(
+      apiKey: apiKey,
+      passiveApiKey: passiveApiKey,
+      baseURL: baseURL,
+      locale: locale,
+      size: size,
+      orientation: orientation,
+      jsSrc: jsSrc,
+      rqdata: rqdata,
+      sentry: sentry,
+      endpoint: endpoint,
+      reportapi: reportapi,
+      assethost: assethost,
+      imghost: imghost,
+      host: host,
+      theme: theme,
+      customTheme: customTheme,
+      diagnosticLog: diagnosticLog,
+      disablePat: false)
+  }
 }

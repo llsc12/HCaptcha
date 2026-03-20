@@ -29,7 +29,7 @@
    * [Disable new token fetch on expiry](#disable-new-token-fetch-on-expiry)
    * [MFA Phone Support](#mfa-phone-support)
    * [Testing Examples with SPM](#testing-examples-with-spm)
-   * [User journey](#user-journey)
+   * [User Journeys](#user-journeys)
 - [Compiled size](#compiled-size-impact-on-including-in-your-app)
 - [Known issues](#known-issues)
 - [License](#license)
@@ -297,9 +297,9 @@ In `Xcode`:
 3. `File` -> `Add Package Dependencies...` -> `Add local...` -> select root of the repo
 4. Select project (`Project Navigator`) -> Select target (one of our example apps `UIKit-Example` or `SwiftUI-Examples` or another) -> Select `General` tab -> Go to `Frameworks, Libraries and Embedded Content` -> `+` -> select `HCaptcha`
 
-### User journey
+### User Journeys
 
-The SDK supports user journey tracking for analytics purposes. To enable user journey collection, pass `userJourney: true` when initializing the HCaptcha instance:
+The SDK supports [User Journeys](https://www.hcaptcha.com/user-journeys) for Enterprise customers. To enable collection, pass `userJourney: true` when initializing the HCaptcha instance:
 
 ```swift
 let hcaptcha = try? HCaptcha(
@@ -308,9 +308,9 @@ let hcaptcha = try? HCaptcha(
 )
 ```
 
-When enabled, the SDK will automatically collect user journey events (from initialization till `validate` method called) and process them during verification.
+When enabled, the SDK will automatically collect these events (from initialization until the `validate` method called) and process them during verification.
 
-**Note**: To stop journey events collection, `hcaptcha.stop()` must be called.
+**Note**: To stop User Journeys events collection, `hcaptcha.stop()` must be called.
 
 ## Compiled size: impact on including in your app
 

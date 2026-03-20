@@ -27,6 +27,9 @@ public class HCaptcha: NSObject {
     /// The worker that handles webview events and communication
     let manager: HCaptchaWebViewManager
 
+    /// The user journey feature flag
+    let userJourney: Bool
+
     /**
      - parameters:
          - apiKey: The API key sent to the HCaptcha init
@@ -77,9 +80,14 @@ public class HCaptcha: NSObject {
         theme: String = "light",
         customTheme: String? = nil,
         diagnosticLog: Bool = false,
-        disablePat: Bool = false
+        disablePat: Bool = false,
+        userJourney: Bool = false
     ) throws {
         Log.minLevel = diagnosticLog ? .debug : .warning
+
+        if userJourney {
+            guard HCaptchaJourneys.start() else { throw HCaptchaError.journeyliticsNotAvailable }
+        }
 
         let infoDict = Bundle.main.infoDictionary
 
@@ -104,11 +112,12 @@ public class HCaptcha: NSObject {
                                         theme: theme,
                                         customTheme: customTheme,
                                         locale: locale,
-                                        disablePat: disablePat)
+                                        disablePat: disablePat,
+                                        userJourney: userJourney)
 
         Log.debug(".init with: \(config)")
 
-        self.init(manager: HCaptchaWebViewManager(config: config))
+        self.init(manager: HCaptchaWebViewManager(config: config), userJourney: userJourney)
     }
 
     /**
@@ -116,8 +125,9 @@ public class HCaptcha: NSObject {
 
       Initializes HCaptcha with the given manager
     */
-    init(manager: HCaptchaWebViewManager) {
+    init(manager: HCaptchaWebViewManager, userJourney: Bool = false) {
         self.manager = manager
+        self.userJourney = userJourney
     }
 
     /**
@@ -145,10 +155,15 @@ public class HCaptcha: NSObject {
                          completion: @escaping (HCaptchaResult) -> Void) {
         Log.debug(".validate on: \(String(describing: view)) resetOnError: \(resetOnError)")
 
-        manager.verifyParams = nil
+        if userJourney {
+            let verifyParams = HCaptchaVerifyParams(resetOnError: resetOnError)
+            verifyParams.userJourney = HCaptchaJourneys.drainEvents()
+            manager.verifyParams = verifyParams
+        } else {
+            manager.verifyParams = nil
+        }
         manager.shouldResetOnError = resetOnError
         manager.completion = completion
-
         manager.validate(on: view)
     }
 
@@ -165,7 +180,11 @@ public class HCaptcha: NSObject {
                          completion: @escaping (HCaptchaResult) -> Void) {
         Log.debug(".validate on: \(String(describing: view)) verifyParams: \(verifyParams)")
 
-        guard verifyParams.hasSupportedValues else {
+        if userJourney {
+            verifyParams.userJourney = HCaptchaJourneys.drainEvents()
+        }
+
+        guard verifyParams.hasSupportedValues || verifyParams.userJourney != nil else {
             manager.verifyParams = nil
             completion(HCaptchaResult(manager, error: .verifyParamsParseError))
             return
@@ -182,7 +201,7 @@ public class HCaptcha: NSObject {
     @objc
     public func stop() {
         Log.debug(".stop")
-
+        HCaptchaJourneys.stop()
         manager.stop()
     }
 
@@ -299,7 +318,12 @@ public class HCaptcha: NSObject {
                             host: String?,
                             theme: String,
                             customTheme: String?,
-                            diagnosticLog: Bool) throws {
+                            diagnosticLog: Bool,
+                            userJourney: Bool) throws {
+        if userJourney {
+            guard HCaptchaJourneys.start() else { throw HCaptchaError.journeyliticsNotAvailable }
+        }
+
         try self.init(apiKey: apiKey,
                       passiveApiKey: passiveApiKey,
                       baseURL: baseURL,
@@ -317,6 +341,7 @@ public class HCaptcha: NSObject {
                       theme: theme,
                       customTheme: customTheme,
                       diagnosticLog: diagnosticLog,
-                      disablePat: false)
+                      disablePat: false,
+                      userJourney: userJourney)
     }
 }

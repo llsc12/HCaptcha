@@ -201,13 +201,18 @@ class HCaptcha__Tests: XCTestCase {
         let phonePrefix = "44"
         let phoneNumber = "1234567890"
         let verifyParams = HCaptchaVerifyParams(phonePrefix: phonePrefix, phoneNumber: phoneNumber)
-        let hcaptcha = HCaptcha(manager: HCaptchaWebViewManager(messageBody: "{token: \"test_token\"}"))
+        let manager = HCaptchaWebViewManager(html: instrumentedSetDataHTML(), apiKey: "api-key")
+        let hcaptcha = HCaptcha(manager: manager)
 
         // When
         let view = UIApplication.shared.windows.first?.rootViewController?.view
         hcaptcha.validate(on: view, verifyParams: verifyParams) { result in
             // Then
-            XCTAssertEqual(result.token, "test_token")
+            let payload = self.setDataPayload(from: result)
+            XCTAssertEqual(payload["mfa_phoneprefix"] as? String, phonePrefix)
+            XCTAssertEqual(payload["mfa_phone"] as? String, phoneNumber)
+            XCTAssertNil(payload["phonePrefix"])
+            XCTAssertNil(payload["phoneNumber"])
             exp.fulfill()
         }
 
@@ -237,41 +242,15 @@ class HCaptcha__Tests: XCTestCase {
         let exp = expectation(description: "rqdata is forwarded to JS on initial load")
         let rqdata = "test-rqdata-string"
         let verifyParams = HCaptchaVerifyParams(rqdata: rqdata)
-        let html = """
-        <html>
-          <head>
-            <script type="text/javascript">
-              var post = function(value) {
-                window.webkit.messageHandlers.hcaptcha.postMessage(value);
-              };
-
-              var execute = function(verifyParams) {
-                if (verifyParams && verifyParams.rqdata) {
-                  post({ token: verifyParams.rqdata });
-                } else {
-                  post({ error: 34 });
-                }
-              };
-
-              var reset = function() {
-                post({ action: "didLoad" });
-              };
-
-              post({ action: "didLoad" });
-            </script>
-          </head>
-          <body></body>
-        </html>
-        """
-        let manager = HCaptchaWebViewManager(html: html, apiKey: "api-key")
+        let manager = HCaptchaWebViewManager(html: instrumentedSetDataHTML(), apiKey: "api-key")
         let hcaptcha = HCaptcha(manager: manager)
 
         // When
         let view = UIApplication.shared.windows.first?.rootViewController?.view
         hcaptcha.validate(on: view, verifyParams: verifyParams) { result in
             // Then
-            XCTAssertNil(result.error)
-            XCTAssertEqual(result.token, rqdata)
+            let payload = self.setDataPayload(from: result)
+            XCTAssertEqual(payload["rqdata"] as? String, rqdata)
             exp.fulfill()
         }
 
@@ -282,7 +261,7 @@ class HCaptcha__Tests: XCTestCase {
         // Given
         let exp = expectation(description: "deprecated rqdata is forwarded to JS on initial load")
         let rqdata = "deprecated-rqdata-string"
-        let manager = HCaptchaWebViewManager(html: deprecatedRqdataHTML,
+        let manager = HCaptchaWebViewManager(html: instrumentedSetDataHTML(),
                                              apiKey: "api-key",
                                              rqdata: rqdata)
         let hcaptcha = HCaptcha(manager: manager)
@@ -291,8 +270,8 @@ class HCaptcha__Tests: XCTestCase {
         let view = UIApplication.shared.windows.first?.rootViewController?.view
         hcaptcha.validate(on: view) { result in
             // Then
-            XCTAssertNil(result.error)
-            XCTAssertEqual(result.token, rqdata)
+            let payload = self.setDataPayload(from: result)
+            XCTAssertEqual(payload["rqdata"] as? String, rqdata)
             exp.fulfill()
         }
 
@@ -304,7 +283,7 @@ class HCaptcha__Tests: XCTestCase {
         let exp = expectation(description: "verify params rqdata overrides deprecated fallback")
         let deprecatedRqdata = "deprecated-rqdata-string"
         let verifyRqdata = "verify-rqdata-string"
-        let manager = HCaptchaWebViewManager(html: deprecatedRqdataHTML,
+        let manager = HCaptchaWebViewManager(html: instrumentedSetDataHTML(),
                                              apiKey: "api-key",
                                              rqdata: deprecatedRqdata)
         let hcaptcha = HCaptcha(manager: manager)
@@ -314,8 +293,8 @@ class HCaptcha__Tests: XCTestCase {
         let view = UIApplication.shared.windows.first?.rootViewController?.view
         hcaptcha.validate(on: view, verifyParams: verifyParams) { result in
             // Then
-            XCTAssertNil(result.error)
-            XCTAssertEqual(result.token, verifyRqdata)
+            let payload = self.setDataPayload(from: result)
+            XCTAssertEqual(payload["rqdata"] as? String, verifyRqdata)
             exp.fulfill()
         }
 
@@ -421,84 +400,105 @@ class HCaptcha__Tests: XCTestCase {
 
         wait(for: [exp], timeout: TestTimeouts.standard)
     }
+
+    func test__validate__withUserJourney__allowsInternalVerifyParams() {
+        // Given
+        let exp = expectation(description: "userJourney payload is injected on default validate path")
+
+        class MockManager: HCaptchaWebViewManager {
+            var receivedVerifyParams: HCaptchaVerifyParams?
+
+            override func validate(on view: UIView?) {
+                receivedVerifyParams = self.verifyParams
+                let completion = self.completion
+                self.completion = nil
+                stop()
+                completion?(HCaptchaResult(self, token: "test_token"))
+            }
+        }
+
+        let manager = MockManager(messageBody: "{token: \"fallback_token\"}")
+        let hcaptcha = HCaptcha(manager: manager, userJourney: true)
+
+        // When
+        let view = UIApplication.shared.windows.first?.rootViewController?.view
+        hcaptcha.validate(on: view) { result in
+            // Then
+            XCTAssertNil(result.error)
+            XCTAssertEqual(result.token, "test_token")
+            XCTAssertNotNil(manager.receivedVerifyParams)
+            XCTAssertNotNil(manager.receivedVerifyParams?.userJourney as? [Any])
+            exp.fulfill()
+        }
+
+        wait(for: [exp], timeout: TestTimeouts.standard)
+    }
+
+    // MARK: - User Journeys Tests
+    // To run manually once Journeylitics subspec removed from test target app
+    func test__userJourney_enabled_without_impl_throws() {
+        do {
+            _ = try HCaptcha(userJourney: true)
+            XCTFail("Expected journeyliticsNotAvailable error when Journeylitics impl is not linked")
+        } catch let error as HCaptchaError {
+            XCTAssertEqual(error, .journeyliticsNotAvailable)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
 }
 
 private extension HCaptcha__Tests {
-    var deprecatedRqdataHTML: String {
-        """
-        <html>
-          <head>
-            <script type="text/javascript">
-              var post = function(value) {
-                window.webkit.messageHandlers.hcaptcha.postMessage(value);
-              };
-
-              var capturedData = null;
-              var hcaptcha = {
-                render: function() {
-                  return 1;
-                },
+    func instrumentedSetDataHTML(file: StaticString = #filePath, line: UInt = #line) -> String {
+        let html = HCaptchaHtml.template.replacingOccurrences(
+            of: "document.head.appendChild(script);",
+            with: """
+              window.hcaptcha = {
                 setData: function(_, data) {
-                  capturedData = data;
+                  window.__setDataPayload = data;
                 },
                 execute: function() {
-                  if (capturedData && capturedData.rqdata) {
-                    post({ token: capturedData.rqdata });
-                  } else {
-                    post({ error: 34 });
-                  }
+                  post({ token: JSON.stringify(window.__setDataPayload || null) });
                 },
                 reset: function() {
                   post({ action: "didLoad" });
-                }
-              };
-              window.hcaptcha = hcaptcha;
-
-              var setVerifyParams = function(params) {
-                try {
-                  var phone = params.phoneNumber || params.mfa_phone;
-                  var prefix = params.phonePrefix || params.mfa_phoneprefix;
-                  var rqdata = params.rqdata || "${rqdata}";
-
-                  if (phone || prefix || rqdata) {
-                    var data = {};
-                    if (phone) data.mfa_phone = phone;
-                    if (prefix) data.mfa_phoneprefix = prefix;
-                    if (rqdata) data.rqdata = rqdata;
-
-                    if (window.hCaptchaID) {
-                      hcaptcha.setData(window.hCaptchaID, data);
-                    }
-                  }
-                } catch (e) {
-                  post({ error: 34 });
-                }
+                },
+                render: function() {
+                  return 1;
+                },
+                close: function() {}
               };
 
-              var execute = function(verifyParams) {
-                try {
-                  if (verifyParams || "${rqdata}") {
-                    setVerifyParams(verifyParams || {});
-                  }
-                  hcaptcha.execute();
-                } catch (e) {
-                  post({ error: 29 });
-                }
-              };
+              setTimeout(function() {
+                onloadCallback();
+              }, 0);
+            """
+        )
 
-              var reset = function() {
-                hcaptcha.reset();
-              };
+        XCTAssertNotEqual(
+            html,
+            HCaptchaHtml.template,
+            "failed to instrument setData test HTML",
+            file: file,
+            line: line
+        )
 
-              window.hCaptchaID = hcaptcha.render("hcaptcha-container", {});
-              post({ action: "didLoad" });
-            </script>
-          </head>
-          <body>
-            <div id="hcaptcha-container"></div>
-          </body>
-        </html>
-        """
+        return html
+    }
+
+    func setDataPayload(from result: HCaptchaResult,
+                        file: StaticString = #filePath,
+                        line: UInt = #line) -> [String: Any] {
+        XCTAssertNil(result.error, file: file, line: line)
+
+        guard let token = result.token,
+              let data = token.data(using: .utf8),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            XCTFail("expected setData payload token", file: file, line: line)
+            return [:]
+        }
+
+        return payload
     }
 }
 

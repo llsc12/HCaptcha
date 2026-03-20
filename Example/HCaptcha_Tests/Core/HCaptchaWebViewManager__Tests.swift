@@ -569,7 +569,6 @@ class HCaptchaWebViewManager__Tests: XCTestCase {
 
         let manager = HCaptchaWebViewManager(messageBody: "{ invalid json",
                                              apiKey: apiKey)
-        manager.shouldResetOnError = false
         manager.configureWebView { _ in
             XCTFail("should not ask to configure the webview")
         }
@@ -586,7 +585,6 @@ class HCaptchaWebViewManager__Tests: XCTestCase {
         let exp = expectation(description: "didLoad never called")
 
         let manager = HCaptchaWebViewManager(html: "<html>", apiKey: apiKey, loadingTimeout: 0.5)
-        manager.shouldResetOnError = false
         manager.configureWebView { _ in
             XCTFail("should not ask to configure the webview")
         }
@@ -724,13 +722,12 @@ class HCaptchaWebViewManager__Tests: XCTestCase {
 
         // When
         manager.verifyParams = verifyParams
-        manager.shouldResetOnError = resetOnError
 
         // Then
         XCTAssertEqual(manager.verifyParams?.phonePrefix, phonePrefix)
         XCTAssertEqual(manager.verifyParams?.phoneNumber, phoneNumber)
         XCTAssertEqual(manager.verifyParams?.resetOnError, resetOnError)
-        XCTAssertEqual(manager.shouldResetOnError, resetOnError)
+        XCTAssertEqual(manager.verifyParams?.resetOnError, resetOnError)
         exp.fulfill()
 
         waitForExpectations(timeout: TestTimeouts.standard)
@@ -746,12 +743,11 @@ class HCaptchaWebViewManager__Tests: XCTestCase {
 
         // When
         manager.verifyParams = verifyParams
-        manager.shouldResetOnError = resetOnError
 
         // Then
         XCTAssertEqual(manager.verifyParams?.phonePrefix, phonePrefix)
         XCTAssertEqual(manager.verifyParams?.resetOnError, resetOnError)
-        XCTAssertEqual(manager.shouldResetOnError, resetOnError)
+        XCTAssertEqual(manager.verifyParams?.resetOnError, resetOnError)
     }
 
     func test__JSCommand_execute__withEmptyVerifyParams() {

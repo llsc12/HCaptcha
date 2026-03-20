@@ -23,7 +23,8 @@ extension HCaptchaError: Equatable {
              (.invalidCustomTheme, .invalidCustomTheme),
              (.networkError, .networkError),
              (.verifyParamsParseError, .verifyParamsParseError),
-             (.invalidHostFormat, .invalidHostFormat):
+             (.invalidHostFormat, .invalidHostFormat),
+             (.journeyliticsNotAvailable, .journeyliticsNotAvailable):
             return true
         case (.unexpected(let lhe as NSError), .unexpected(let rhe as NSError)):
             return lhe == rhe
@@ -46,6 +47,7 @@ extension HCaptchaError: Equatable {
             .verifyParamsParseError,
             .invalidHostFormat,
             .networkError,
+            .journeyliticsNotAvailable,
             .unexpected(NSError())
         ]
         return cases.randomElement()!

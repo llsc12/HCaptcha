@@ -37,17 +37,9 @@ extension HCaptchaWebViewManager {
     func handle(result: HCaptchaDecoder.Result) {
         Log.debug("WebViewManager.handleResult: \(result)")
 
-        guard !resultHandled else {
-            Log.debug("WebViewManager.handleResult skip as handled")
-            return
-        }
-
         switch result {
-        case .token(let token):
-            completion?(HCaptchaResult(self, token: token))
-        case .error(let error):
-            handle(error: error)
-            onEvent?(.error, error)
+        case .token(let token): handleToken(token)
+        case .error(let error): handleDecoderError(error)
         case .showHCaptcha: webView.isHidden = false
         case .didLoad: didLoad()
         case .onOpen: onEvent?(.open, nil)
@@ -58,6 +50,23 @@ extension HCaptchaWebViewManager {
         }
     }
 
+    private func handleToken(_ token: String) {
+        guard !resultHandled else {
+            Log.debug("WebViewManager.handleResult skip token as handled")
+            return
+        }
+        complete(HCaptchaResult(self, token: token))
+    }
+
+    private func handleDecoderError(_ error: HCaptchaError) {
+        guard !resultHandled else {
+            Log.debug("WebViewManager.handleResult skip error as handled")
+            return
+        }
+        handle(error: error)
+        onEvent?(.error, error)
+    }
+
     private func handle(error: HCaptchaError) {
         loadingTimer?.invalidate()
         loadingTimer = nil
@@ -66,11 +75,11 @@ extension HCaptchaWebViewManager {
                 reset()
                 validate(on: view)
             } else {
-                completion?(HCaptchaResult(self, error: error))
+                complete(HCaptchaResult(self, error: error))
             }
         } else {
-            if let completion = completion {
-                completion(HCaptchaResult(self, error: error))
+            if completion != nil {
+                complete(HCaptchaResult(self, error: error))
             } else {
                 lastError = error
             }
@@ -172,8 +181,8 @@ extension HCaptchaWebViewManager {
                     guard let self = self else { return }
                     Log.debug("WebViewManager complete with pendingError: \(error)")
 
-                    self.completion?(HCaptchaResult(self, error: error))
                     self.lastError = nil
+                    self.complete(HCaptchaResult(self, error: error))
                 }
                 if error == .networkError {
                     Log.debug("WebViewManager reloads html after \(error) error")
@@ -195,5 +204,11 @@ extension HCaptchaWebViewManager {
 
     func executeJS(command: JSCommand) {
         executeJS(command: command, didLoad: self.didFinishLoading)
+    }
+
+    func complete(_ result: HCaptchaResult) {
+        let completion = self.completion
+        self.completion = nil
+        completion?(result)
     }
 }

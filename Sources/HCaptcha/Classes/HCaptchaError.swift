@@ -47,6 +47,12 @@ public enum HCaptchaError: Error, CustomStringConvertible {
     /// Invalid host format - host should be a hostname only, not a full URL
     case invalidHostFormat
 
+    /// Failed to parse verify params JSON
+    case verifyParamsParseError
+
+    /// User journey tracking is enabled but Journeylitics library is not available
+    case journeyliticsNotAvailable
+
     public static func == (lhs: HCaptchaError, rhs: HCaptchaError) -> Bool {
         return lhs.description == rhs.description
     }
@@ -92,6 +98,15 @@ public enum HCaptchaError: Error, CustomStringConvertible {
 
         case .invalidHostFormat:
             return "Host parameter should be a hostname only (e.g., 'example.com'), not a full URL"
+
+        case .verifyParamsParseError:
+            return "Failed to parse verify params JSON"
+
+        case .journeyliticsNotAvailable:
+            return """
+            ⚠️ WARNING! User journey tracking is enabled but Journeylitics library is not available.
+            Please add HCaptcha/Journeylitics to your Podfile or import HCaptcha_Journeylitics in your Package.swift.
+            """
         }
     }
 }
